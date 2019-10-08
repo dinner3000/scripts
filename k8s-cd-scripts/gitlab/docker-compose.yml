@@ -1,0 +1,15 @@
+web:
+  image: 'gitlab/gitlab-ce:12.3.1-ce.0'
+  restart: always
+  hostname: 'gitlab.k8s'
+  environment:
+    GITLAB_OMNIBUS_CONFIG: |
+      external_url 'https://172.16.52.129'
+  ports:
+    - '80:80'
+    - '443:443'
+      # - '22:22'
+  volumes:
+    - '/var/www/webapps/gitlab-ce/etc:/etc/gitlab'
+    - '/var/www/webapps/gitlab-ce/logs:/var/log/gitlab'
+    - '/var/www/webapps/gitlab-ce/data:/var/opt/gitlab'

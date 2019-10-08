@@ -1,0 +1,137 @@
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: gitlab-ce
+  namespace: devops
+  labels:
+    name: gitlab-ce
+spec:
+  template:
+    metadata:
+      name: gitlab-ce
+      labels:
+        name: gitlab-ce
+    spec:
+      containers:
+      - name: gitlab-ce
+        image: 172.16.52.129:5000/gitlab-ce:12.3.1-ce.0
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: TZ
+          value: Asia/Shanghai
+        - name: GITLAB_TIMEZONE
+          value: Beijing
+        - name: GITLAB_SECRETS_DB_KEY_BASE
+          value: long-and-random-alpha-numeric-string
+        - name: GITLAB_SECRETS_SECRET_KEY_BASE
+          value: long-and-random-alpha-numeric-string
+        - name: GITLAB_SECRETS_OTP_KEY_BASE
+          value: long-and-random-alpha-numeric-string
+        - name: GITLAB_ROOT_PASSWORD
+          value: 1234abcd
+        - name: GITLAB_ROOT_EMAIL
+          value: admin@gitlab-ce.k8s
+        - name: GITLAB_HOST
+          value: 172.16.52.129:30888
+        - name: GITLAB_PORT
+          value: "80"
+        - name: GITLAB_SSH_PORT
+          value: "22"
+        - name: GITLAB_NOTIFY_ON_BROKEN_BUILDS
+          value: "true"
+        - name: GITLAB_NOTIFY_PUSHER
+          value: "false"
+        - name: GITLAB_BACKUP_SCHEDULE
+          value: daily
+        - name: GITLAB_BACKUP_TIME
+          value: 01:00
+        - name: DB_TYPE
+          value: postgres
+        - name: DB_HOST
+          value: gitlab-ce-postgresql
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_USER
+          value: gitlab-ce
+        - name: DB_PASS
+          value: 1234abcd
+        - name: DB_NAME
+          value: gitlab-ce
+        - name: REDIS_HOST
+          value: gitlab-ce-redis
+        - name: REDIS_PORT
+          value: "6379"
+        ports:
+        - name: http
+          containerPort: 80
+        - name: ssh
+          containerPort: 22
+        - name: https
+          containerPort: 443
+        volumeMounts:
+        - mountPath: /var/opt/gitlab
+          name: data
+        - mountPath: /var/log/gitlab
+          name: log
+        - mountPath: /etc/gitlab
+          name: etc
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 180
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          timeoutSeconds: 1
+      volumes:
+      - name: data
+        hostPath:
+          path: /var/www/webapps/gitlab-ce/data
+      - name: log
+        hostPath:
+          path: /var/www/webapps/gitlab-ce/log
+      - name: etc
+        hostPath:
+          path: /var/www/webapps/gitlab-ce/etc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitlab-ce
+  namespace: devops
+  labels:
+    name: gitlab-ce
+spec:
+  ports:
+    - name: http
+      port: 80
+      nodePort: 30888
+      targetPort: http
+    - name: ssh
+      port: 22
+      targetPort: ssh
+  type: NodePort
+  selector:
+    name: gitlab-ce
+
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: gitlab-ce
+  namespace: devops
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  rules:
+  - host: gitlab-ce.k8s
+    http:
+      paths:
+      - backend:
+          serviceName: gitlab-ce
+          servicePort: http
+
